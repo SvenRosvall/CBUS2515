@@ -68,7 +68,7 @@ const byte SWITCH0 = 6;                  // CBUS push button switch pin
 
 // CBUS objects
 CBUSConfig myCbusConfig;            // configuration object
-CBUS2515 CBUS(myCbusConfig);        // CBUS object
+CBUS2515 CBUS(&myCbusConfig);        // CBUS object
 CBUSLED ledGrn, ledYlw;             // two LED objects
 CBUSSwitch pb_switch;               // switch object
 
@@ -133,10 +133,10 @@ void setupCBUS() {
   }
 
   // opportunity to set default NVs after module reset
-//  if (myCbusConfig.isResetFlagSet()) {
-//    Serial << F("> module has been reset") << endl;
-//    myCbusConfig.clearResetFlag();
-//  }
+  if (myCbusConfig.isResetFlagSet()) {
+    Serial << F("> module has been reset") << endl;
+    myCbusConfig.clearResetFlag();
+  }
 
   // register our CBUS event handler, to receive event messages of learned events
   CBUS.setEventHandler(eventhandler);
