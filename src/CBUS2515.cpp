@@ -52,6 +52,15 @@ ACAN2515 *can;    // CAN bus controller specific object - for MCP2515/25625
 //
 
 CBUS2515::CBUS2515() {
+  initMembers();
+}
+
+CBUS2515::CBUS2515(CBUSConfig *the_config) : CBUSbase(the_config) {
+  initMembers();
+}
+
+void CBUS2515::initMembers() {
+
   _num_rx_buffers = NUM_RX_BUFFS;
   _num_tx_buffers = NUM_TX_BUFFS;
   eventhandler = NULL;
@@ -80,8 +89,12 @@ CBUS2515::CBUS2515(CBUSConfig & config)
 /// default poll arg is set to false, so as not to break existing code
 //
 
-bool CBUS2515::begin(bool poll, SPIClass spi) {
-
+#ifdef ARDUINO_ARCH_RP2040
+bool CBUS2515::begin(bool poll, SPIClassRP2040 spi)
+#else
+bool CBUS2515::begin(bool poll, SPIClass spi)
+#endif
+{
   uint16_t ret;
   bool retval = false;
 
@@ -94,8 +107,21 @@ bool CBUS2515::begin(bool poll, SPIClass spi) {
   settings.mRequestedMode = ACAN2515Settings::NormalMode;
   settings.mReceiveBufferSize = _num_rx_buffers;
   settings.mTransmitBuffer0Size = _num_tx_buffers;
+
+#if defined ESP8266
+  settings.mTransmitBuffer1Size = 1;      // ESP8266 doesn't like new of zero bytes
+  settings.mTransmitBuffer2Size = 1;
+#else
   settings.mTransmitBuffer1Size = 0;
   settings.mTransmitBuffer2Size = 0;
+#endif
+
+#ifdef ARDUINO_ARCH_RP2040
+  spi.setTX(_mosi_pin);
+  spi.setRX(_miso_pin);
+  spi.setSCK(_sck_pin);
+  spi.setCS(_csPin);
+#endif
 
   // start SPI
   spi.begin();
@@ -110,10 +136,11 @@ bool CBUS2515::begin(bool poll, SPIClass spi) {
     ret = can->begin(settings, [] {can->isr();});
   }
 
+  // save pointer to CAN object so the user can access other parts of the library API
+  canp = can;
+
   if (ret == 0) {
     // Serial << F("> CAN controller initialised ok") << endl;
-    // save pointer to CAN object so the user can access other parts of the library API
-    canp = can;
     retval = true;
   } else {
     // Serial << F("> error initialising CAN controller, error code = ") << ret << endl;
@@ -179,6 +206,11 @@ bool CBUS2515::sendMessage(CANFrame *msg, bool rtr, bool ext, byte priority) {
 
   ret = canp->tryToSend(message);
   _numMsgsSent += ret;
+
+  if (UI) {
+    _ledGrn.pulse();
+  }
+
   return ret;
 }
 
@@ -209,9 +241,21 @@ void CBUS2515::reset(void) {
 /// set the CS and interrupt pins - option to override defaults
 //
 
-void CBUS2515::setPins(byte csPin, byte intPin) {
-  _csPin = csPin;
-  _intPin = intPin;
+#ifdef ARDUINO_ARCH_RP2040
+void CBUS2515::setPins(byte cs_pin, byte int_pin, byte mosi_pin, byte miso_pin, byte sck_pin)
+#else
+void CBUS2515::setPins(byte cs_pin, byte int_pin)
+#endif
+{
+
+#ifdef ARDUINO_ARCH_RP2040
+  _mosi_pin = mosi_pin;
+  _miso_pin = miso_pin;
+  _sck_pin = sck_pin;
+#endif
+
+  _csPin = cs_pin;
+  _intPin = int_pin;
 }
 
 //
