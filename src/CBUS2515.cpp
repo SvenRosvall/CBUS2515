@@ -220,7 +220,7 @@ void CBUS2515::printStatus(void) {
 
 void CBUS2515::reset(void) {
   canp->end();
-  delete can;
+  delete canp;
   begin();
 }
 
